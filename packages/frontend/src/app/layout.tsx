@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Next.js + Express App",
-  description: "Full-stack application with authentication",
+  title: "Misc Dulare",
+  description: "Dulare miscellaneous tools",
   icons: {
     icon: [
       { url: "/favicon.ico" },
