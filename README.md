@@ -1,224 +1,135 @@
-# Next.js + Express Monorepo
+# misc-nextjs-express
 
-Full-stack application with authentication and user management.
+Personal multi-tool web app. pnpm monorepo with an Express 4 + Sequelize + SQLite backend and a Next.js 16 (App Router) + React 19 + Tailwind CSS v4 + shadcn/ui frontend.
+
+## Features
+
+- **Auth** - local (email/password + bcrypt) and Google OAuth2, session-based (24h cookie), email activation and password reset
+- **User management** - admin panel to list, edit, activate/deactivate users and assign permissions
+- **Feature flags** - toggle `registrationActive` and `forgotPasswordActive` from the admin UI
+- **Blood pressure tracker** - log and view readings (systolic, diastolic, pulse, weight) with date range filtering and charts
+- **Music sheets** - store and render ABC notation music sheets; public read, auth-required write
+- **File storage** - upload files to Backblaze B2, track downloads via unique slug-based public links
+- **Investment calculator** - convert EUR profit to PLN using live NBP exchange rate data
 
 ## Prerequisites
 
-- Node.js 20+ and pnpm (for local development)
-- Docker and Docker Compose (for containerized usage)
+- Node.js 22+ and pnpm (local dev)
+- Docker and Docker Compose (containerized usage)
 
-## Getting Started
-
-### Option A - Local development
-
-#### 1. External dependencies
-
-You need `maildev` running to capture emails (e.g., password resets):
+## Local development
 
 ```bash
+# Optional: run maildev to capture outgoing emails (activation, password reset)
 docker run -d -p 1080:1080 -p 1025:1025 --name maildev maildev/maildev
-```
+# Web UI: http://localhost:1080
 
-- **Web UI**: http://localhost:1080
-- **SMTP**: localhost:1025
-
-#### 2. Installation & setup
-
-```bash
-# Install dependencies
+cp .env.example .env   # fill in SESSION_SECRET at minimum
 pnpm install
-
-# Copy environment variables
-cp .env.example .env
-
-# Seed the database with an admin user (and default permissions)
-pnpm seed
-
-# Start development servers
-pnpm dev
+pnpm seed              # interactive: creates admin user + default permissions
+pnpm dev               # frontend :3000, backend :3001
 ```
 
-The frontend runs on `http://localhost:${FRONTEND_PORT:-3000}` and the backend on `http://localhost:${PORT:-3001}`.
+## Docker
 
-### Option B - Docker Compose
-
-#### Production mode (default)
+**Production:**
 
 ```bash
-cp .env.example .env
-# Edit .env - set SESSION_SECRET and any other required values
+cp .env.example .env   # set SESSION_SECRET, WEBSITE_URL, API_URL
+docker compose up --build -d
 
-docker compose up --build
-```
-
-On first run, seed the database from inside the running container:
-
-```bash
+# First run: seed the database
 docker compose exec backend pnpm seed
 ```
 
-> For production deployments, set `WEBSITE_URL` and `API_URL` in `.env` to your actual HTTPS URLs before building. The frontend image must be rebuilt when `API_URL` changes, as Next.js bakes it in at build time.
+> `API_URL` is baked into the frontend image at build time. Rebuild when it changes.
 
-#### Dev mode (hot reload)
+**Dev mode (hot reload with source mounts):**
 
-Add this line to your `.env` to enable source mounting and hot reload:
+Add to `.env`:
 
 ```
 COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml
 ```
 
-Then run as normal:
+Then `docker compose up --build`. Changes under `packages/backend/src` and `packages/frontend/src` are picked up automatically.
 
-```bash
-docker compose up --build
-```
+## Deployment
 
-Changes to files under `packages/backend/src` and `packages/frontend/src` are picked up automatically without rebuilding the image.
+Push to `master` triggers a GitHub Actions workflow that deploys via SSH. Required repository secrets: `MISC2026_SSH_HOST`, `MISC2026_SSH_USER`, `MISC2026_SSH_PRIVATE_KEY`, `MISC2026_SSH_PORT`.
 
-## Scripts
+## Environment variables
 
-| Command | Description |
-| --- | --- |
-| `pnpm dev` | Start both frontend and backend in dev mode |
-| `pnpm seed` | Create initial admin user and permissions |
-| `pnpm build` | Build the project |
+See `.env.example` for the full list. Key variables:
 
-## Project Structure
+| Variable | Description | Default |
+|---|---|---|
+| `SESSION_SECRET` | Express session secret (required) | - |
+| `PORT` | Backend port | `3001` |
+| `FRONTEND_PORT` | Frontend port | `3000` |
+| `WEBSITE_URL` | Frontend URL - used for CORS and OAuth redirects | `http://localhost:3000` |
+| `API_URL` | Backend URL - used by the frontend | `http://localhost:3001` |
+| `DB_PATH` | SQLite file path | `<root>/database/database.sqlite` |
+| `COOKIE_DOMAIN` | Session cookie domain | - |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth2 credentials | - |
+| `GOOGLE_CALLBACK_URL` | OAuth2 callback URL | `http://localhost:3001/auth/google/callback` |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | SMTP settings | `localhost:1025` |
+| `BACKBLAZE_KEY_ID` / `BACKBLAZE_APPLICATION_KEY` / `BACKBLAZE_BUCKET_ID` / `BACKBLAZE_PUBLIC_URL` | Backblaze B2 | - |
+
+## Project structure
 
 ```
 packages/
-  backend/           Express API server
+  backend/
     src/
-      config/        Database configuration
-      middleware/    Auth middleware (isAuthenticated, hasPermission)
-      models/        Sequelize models (User, Permission, UserPermission)
-      passport/      Passport strategies (local, Google OAuth)
-      routes/        API routes (auth, users, feature-flags, blood-pressure)
-      scripts/       CLI scripts (seed)
-  frontend/          Next.js application
+      config/      Database (Sequelize + SQLite)
+      middleware/  isAuthenticated, hasPermission
+      models/      User, Permission, UserPermission, FeatureFlag,
+                   BloodPressure, Music, B2File, B2FileDownload
+      passport/    Local and Google OAuth2 strategies
+      routes/      auth, users, feature-flags, blood-pressure,
+                   music, b2files, public-downloads
+      scripts/     seed CLI
+  frontend/
     src/
-      app/           Pages (home, login, profile, users)
-      components/    UI components and navbar
-      context/       React context providers (auth)
-      hooks/         Custom hooks (useRequireAuth)
-      lib/           Utilities, API client, types
+      app/         Pages: login, register, profile, admin/*, blood-pressure/*,
+                   music/*, b2files/*, investment/*
+      components/  shadcn/ui components, navbar
+      context/     AuthContext + useAuth()
+      hooks/       useRequireAuth, useAbcjs, useMusicSheet
+      lib/         api fetch wrapper, types, utils
 ```
 
-## Database & Sequelize
+## API routes
 
-The backend uses **Sequelize** with **SQLite**. The database file is stored at `database/database.sqlite` in the project root (outside the backend package so it can be easily volume-mounted in Docker). The path can be overridden with the `DB_PATH` environment variable.
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/auth/login` | - | Local login |
+| POST | `/auth/logout` | - | Logout |
+| GET | `/auth/google` | - | Google OAuth2 |
+| GET | `/auth/me` | session | Current user |
+| GET/POST | `/blood-pressure` | session | Blood pressure records |
+| GET/PUT/DELETE | `/blood-pressure/:id` | session | Single record |
+| GET/GET | `/music` `/music/:id` | - | Music sheets (public) |
+| POST/PUT/DELETE | `/music` `/music/:id` | session | Manage sheets |
+| GET/POST/DELETE | `/b2files` `/b2files/:id` | session | Backblaze file management |
+| GET | `/public-downloads/:slug` | - | Public file download by slug |
+| GET/POST/PATCH/DELETE | `/users` `/users/:id` | admin | User management |
+| GET/PATCH | `/feature-flags` | admin | Feature flag management |
 
-### Initialization
-
-When you run the server (`pnpm dev` or `tsx src/index.ts`), the application automatically syncs the database models with the database file.
-This `sequelize.sync()` call will create tables if they do not exist.
-
-### Seeding
-
-To populate the database with initial data (Admin user, default permissions, feature flags):
+## Scripts
 
 ```bash
-pnpm seed
+pnpm dev                          # start both packages in parallel
+pnpm seed                         # interactive admin user seeder
+pnpm --filter backend build       # compile backend TypeScript
+pnpm --filter frontend build      # production frontend build
+pnpm --filter frontend lint       # ESLint
 ```
 
-This runs `packages/backend/src/scripts/seed.ts`.
+## Tech stack
 
-### Migrations
-
-For schema changes (adding columns, new tables) that you want to version control, use `sequelize-cli`.
-
-> [!IMPORTANT]
-> You must run these commands from the `packages/backend` directory.
-
-#### Creating a Migration
-
-To create a new migration file:
-
-```bash
-cd packages/backend
-pnpm exec sequelize-cli migration:generate --name <migration-name>
-# Example: pnpm exec sequelize-cli migration:generate --name add-age-to-users
-```
-
-This creates a file in `packages/backend/migrations`. Edit this file to define your `up` and `down` logic.
-
-**Example 1: Adding a new column**
-
-```javascript
-// migrations/XXXXXXXXXXXXXX-add-age-to-users.js
-module.exports = {
-  up: async (queryInterface, Sequelize) => {
-    await queryInterface.addColumn('Users', 'age', {
-      type: Sequelize.INTEGER,
-      allowNull: true,
-    });
-  },
-
-  down: async (queryInterface, Sequelize) => {
-    await queryInterface.removeColumn('Users', 'age');
-  }
-};
-```
-
-**Example 2: Creating a new table**
-
-```javascript
-// migrations/XXXXXXXXXXXXXX-create-posts.js
-module.exports = {
-  up: async (queryInterface, Sequelize) => {
-    await queryInterface.createTable('Posts', {
-      id: {
-        allowNull: false,
-        autoIncrement: true,
-        primaryKey: true,
-        type: Sequelize.INTEGER
-      },
-      title: {
-        type: Sequelize.STRING,
-        allowNull: false
-      },
-      userId: {
-        type: Sequelize.INTEGER,
-        references: {
-          model: 'Users',
-          key: 'id'
-        },
-        onUpdate: 'CASCADE',
-        onDelete: 'SET NULL'
-      },
-      createdAt: {
-        allowNull: false,
-        type: Sequelize.DATE
-      },
-      updatedAt: {
-        allowNull: false,
-        type: Sequelize.DATE
-      }
-    });
-  },
-
-  down: async (queryInterface, Sequelize) => {
-    await queryInterface.dropTable('Posts');
-  }
-};
-```
-
-#### Running Migrations
-
-```bash
-cd packages/backend
-pnpm exec sequelize-cli db:migrate
-```
-
-#### Undoing Migrations
-
-```bash
-cd packages/backend
-pnpm exec sequelize-cli db:migrate:undo
-```
-
-## Tech Stack Overview
-
-- **Frontend**: Next.js 16, React 19, Tailwind CSS v4
-- **Backend**: Express, Passport.js, Sequelize, SQLite
-- **Package Manager**: pnpm workspaces
+- **Frontend**: Next.js 16, React 19, Tailwind CSS v4, shadcn/ui, Recharts
+- **Backend**: Express 4, Passport.js, Sequelize, SQLite, Nodemailer, Multer
+- **Storage**: Backblaze B2
+- **Package manager**: pnpm workspaces
