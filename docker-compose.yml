@@ -1,0 +1,45 @@
+name: misc-app
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: packages/backend/Dockerfile
+      target: production
+    environment:
+      NODE_ENV: production
+      PORT: ${PORT:-3001}
+      SESSION_SECRET: ${SESSION_SECRET}
+      WEBSITE_URL: ${WEBSITE_URL:-http://localhost:3000}
+      API_URL: ${API_URL:-http://localhost:3001}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:3001/auth/google/callback}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      SMTP_HOST: ${SMTP_HOST:-localhost}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@localhost}
+      DB_PATH: /app/database/database.sqlite
+    volumes:
+      - ./database:/app/database
+    ports:
+      - "${PORT:-3001}:${PORT:-3001}"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: packages/frontend/Dockerfile
+      target: production
+      args:
+        API_URL: ${API_URL:-http://localhost:3001}
+    environment:
+      NODE_ENV: production
+      PORT: ${FRONTEND_PORT:-3000}
+    ports:
+      - "${FRONTEND_PORT:-3000}:${FRONTEND_PORT:-3000}"
+    depends_on:
+      - backend
+    restart: unless-stopped

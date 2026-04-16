@@ -1,0 +1,21 @@
+services:
+  backend:
+    build:
+      target: development
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./packages/backend/src:/app/packages/backend/src
+    restart: "no"
+
+  frontend:
+    build:
+      target: development
+    environment:
+      NODE_ENV: development
+      API_URL: ${API_URL:-http://localhost:3001}
+      FRONTEND_PORT: ${FRONTEND_PORT:-3000}
+    volumes:
+      - ./packages/frontend/src:/app/packages/frontend/src
+      - ./packages/frontend/public:/app/packages/frontend/public
+    restart: "no"

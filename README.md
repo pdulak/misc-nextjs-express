@@ -4,14 +4,16 @@ Full-stack application with authentication and user management.
 
 ## Prerequisites
 
-- Node.js 20+
-- pnpm
+- Node.js 20+ and pnpm (for local development)
+- Docker and Docker Compose (for containerized usage)
 
 ## Getting Started
 
-### 1. External Dependencies
+### Option A - Local development
 
-For development, you need `maildev` running to capture emails sent by the application (e.g., password resets).
+#### 1. External dependencies
+
+You need `maildev` running to capture emails (e.g., password resets):
 
 ```bash
 docker run -d -p 1080:1080 -p 1025:1025 --name maildev maildev/maildev
@@ -20,7 +22,7 @@ docker run -d -p 1080:1080 -p 1025:1025 --name maildev maildev/maildev
 - **Web UI**: http://localhost:1080
 - **SMTP**: localhost:1025
 
-### 2. Installation & Setup
+#### 2. Installation & setup
 
 ```bash
 # Install dependencies
@@ -36,7 +38,42 @@ pnpm seed
 pnpm dev
 ```
 
-The frontend runs on http://localhost:3000 and the backend on http://localhost:3001.
+The frontend runs on `http://localhost:${FRONTEND_PORT:-3000}` and the backend on `http://localhost:${PORT:-3001}`.
+
+### Option B - Docker Compose
+
+#### Production mode (default)
+
+```bash
+cp .env.example .env
+# Edit .env - set SESSION_SECRET and any other required values
+
+docker compose up --build
+```
+
+On first run, seed the database from inside the running container:
+
+```bash
+docker compose exec backend pnpm seed
+```
+
+> For production deployments, set `WEBSITE_URL` and `API_URL` in `.env` to your actual HTTPS URLs before building. The frontend image must be rebuilt when `API_URL` changes, as Next.js bakes it in at build time.
+
+#### Dev mode (hot reload)
+
+Add this line to your `.env` to enable source mounting and hot reload:
+
+```
+COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml
+```
+
+Then run as normal:
+
+```bash
+docker compose up --build
+```
+
+Changes to files under `packages/backend/src` and `packages/frontend/src` are picked up automatically without rebuilding the image.
 
 ## Scripts
 
@@ -69,11 +106,11 @@ packages/
 
 ## Database & Sequelize
 
-The backend uses **Sequelize** with **SQLite**.
+The backend uses **Sequelize** with **SQLite**. The database file is stored at `database/database.sqlite` in the project root (outside the backend package so it can be easily volume-mounted in Docker). The path can be overridden with the `DB_PATH` environment variable.
 
 ### Initialization
 
-When you run the server (`pnpm dev` or `tsx src/index.ts`), the application automatically syncs the database models with the database file (`database.sqlite`).
+When you run the server (`pnpm dev` or `tsx src/index.ts`), the application automatically syncs the database models with the database file.
 This `sequelize.sync()` call will create tables if they do not exist.
 
 ### Seeding
