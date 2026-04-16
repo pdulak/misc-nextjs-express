@@ -2,7 +2,10 @@
   "name": "nextjs-express",
   "private": true,
   "scripts": {
-    "dev": "pnpm --parallel --filter './packages/*' dev",
+    "dev": "dotenv -e .env -- pnpm --parallel --filter './packages/*' dev",
     "seed": "pnpm --filter backend seed"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^11.0.0"
   }
 }
