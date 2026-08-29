@@ -14,8 +14,13 @@ COPY packages/backend ./packages/backend
 EXPOSE 3001
 CMD ["pnpm", "--filter", "backend", "dev"]
 
-FROM deps AS production
+FROM deps AS build
 COPY packages/backend ./packages/backend
 RUN pnpm --filter backend build
+RUN pnpm --filter backend deploy --prod /app/deployed
+
+FROM node:24-alpine AS production
+WORKDIR /app
+COPY --from=build /app/deployed ./
 EXPOSE 3001
-CMD ["node", "packages/backend/dist/index.js"]
+CMD ["node", "dist/index.js"]
