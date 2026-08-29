@@ -1,6 +1,6 @@
 FROM node:24-alpine AS base
 RUN apk add --no-cache python3 make g++
-RUN npm install -g pnpm
+RUN npm install -g pnpm@10.15.0
 WORKDIR /app
 
 FROM base AS deps
@@ -17,7 +17,7 @@ CMD ["pnpm", "--filter", "backend", "dev"]
 FROM deps AS build
 COPY packages/backend ./packages/backend
 RUN pnpm --filter backend build
-RUN pnpm --filter backend deploy --prod /app/deployed
+RUN pnpm --filter backend deploy --prod --legacy /app/deployed
 
 FROM node:24-alpine AS production
 WORKDIR /app
